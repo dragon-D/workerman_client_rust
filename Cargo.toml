@@ -1,0 +1,37 @@
+[package]
+name = "gateway_sdk"
+version = "0.1.0"
+edition = "2023"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+tokio = { version = "1.26.0", features = ["full", "rt", "rt-multi-thread", "time"] }
+tokio-util = { version = "0.7.7", features = ["codec"] }
+xtra = {version="0.5.2", features=["with-tokio-1"]}
+actix-rt = "2.6"
+anyhow = "1"
+async-trait = "0.1.36"
+iptools = "0.1.5"
+futures-util = "0.3.28"
+chrono = "0.4.19"
+once_cell = "1.4.1"
+
+# 字节序列化
+byteorder = "1.2.2"
+bytes = { version = "1", features = ["serde"] }
+bincode = "1.3.3"
+hex = "0.4.3"
+
+
+# 序列化
+serde_json = "1.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_php = "0.5.0"
+
+#log
+env_logger = "0.9.0"
+log = "0.4.14"
+
+
