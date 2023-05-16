@@ -11,6 +11,7 @@ use crate::register::RegisterClient;
 use crate::types::{DispatcherStart, *};
 use std::collections::HashMap;
 
+use anyhow::Result;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{sleep, timeout, Duration};
 use xtra::{Address, Context};
@@ -139,6 +140,76 @@ pub async fn get_client_id_by_uid(
     return gateway_res;
 }
 
+/// 分组下广播所有在线用户
+pub async fn send_group(
+    dispatch: Address<DispatcherService>,
+    mesaage: &str,
+    group: &str,
+    exclude_client_id: Option<Vec<String>>,
+    raw: Option<bool>,
+) -> Result<()> {
+    let msg = ActionMessage::SendToGroup {
+        message: mesaage.to_string(),
+        group: vec![group.to_string()],
+        exclude_client_id: exclude_client_id,
+        raw: raw,
+    };
+    let res = dispatch.do_send_async(msg).await?;
+    Ok(())
+}
+
+/// 加入分组
+pub async fn cid_join_group(
+    dispatch: Address<DispatcherService>,
+    client_id: &str,
+    group: &str,
+) -> Result<()> {
+    let msg = ActionMessage::JoinGroup {
+        client_id: client_id.to_string(),
+        group: group.to_string(),
+    };
+    let res = dispatch.do_send_async(msg).await?;
+    Ok(())
+}
+
+/// 给bind uid所有在线设备广播
+pub async fn send_uid(
+    dispatch: Address<DispatcherService>,
+    uid: &str,
+    message: &str,
+) -> Result<()> {
+    let msg = ActionMessage::SendToUid {
+        uid: vec![uid.to_string()],
+        body: message.to_string(),
+    };
+    let res = dispatch.do_send_async(msg).await?;
+    Ok(())
+}
+
+/// 退出组
+pub async fn leave_group(
+    dispatch: Address<DispatcherService>,
+    cid: &str,
+    group: &str,
+) -> Result<()> {
+    let msg = ActionMessage::LeaveGroup {
+        client_id: cid.to_string(),
+        group: group.to_string(),
+    };
+    let res = dispatch.do_send_async(msg).await?;
+    Ok(())
+}
+
+/// 给bind uid所有在线设备广播
+pub async fn bind_uid(dispatch: Address<DispatcherService>, cid: &str, uid: &str) -> Result<()> {
+    let msg = ActionMessage::BindUid {
+        client_id: cid.to_string(),
+        uid: uid.to_string(),
+    };
+    let res = dispatch.do_send_async(msg).await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,116 +219,95 @@ mod tests {
     #[actix_rt::test]
     async fn send_to_uid() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let m = ActionMessage::SendToUid {
-            uid: vec!["uid1".to_string()],
-            body: "这是rust sdk发送的".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
-
+        let _ = send_uid(
+            dispatcher_service,
+            "86490735033065472",
+            "这是rust sdk发送的",
+        )
+        .await;
         sleep(Duration::from_secs(1)).await;
         println!("done");
     }
 
     /// 加入组同时往组推送内如
     #[actix_rt::test]
-    async fn join_gorup() {
+    async fn test_join_gorup() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let m = ActionMessage::JoinGroup {
-            client_id: "7f0000010b5400000001".to_string(),
-            group: "group".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
-
+        let _ = cid_join_group(dispatcher_service.clone(), "7f0000010b540000000c", "group").await;
         sleep(Duration::from_secs(1)).await;
-
-        let m = ActionMessage::SendToGroup {
-            message: "rust send group".to_string(),
-            group: vec!["group".to_string()],
-            exclude_client_id: None,
-            raw: None,
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
-
+        let _ = send_group(
+            dispatcher_service.clone(),
+            "呼叫group 1",
+            "group",
+            None,
+            None,
+        )
+        .await;
         sleep(Duration::from_secs(1)).await;
         println!("done join_gorup");
     }
 
     #[actix_rt::test]
-    async fn send_group() {
+    async fn test_send_group() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let m = ActionMessage::SendToGroup {
-            message: "rust send group".to_string(),
-            group: vec!["group".to_string()],
-            exclude_client_id: None,
-            raw: None,
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
-
+        let _ = send_group(
+            dispatcher_service.clone(),
+            "rust sdk 呼叫group 1",
+            "86490735033065472",
+            None,
+            None,
+        )
+        .await;
         sleep(Duration::from_secs(1)).await;
         println!("done");
     }
 
     #[actix_rt::test]
-    async fn leave_group() {
+    async fn test_leave_group() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let m = ActionMessage::JoinGroup {
-            client_id: "7f0000010b5400000003".to_string(),
-            group: "group".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
-
+        let _ = cid_join_group(dispatcher_service.clone(), "7f0000010b540000000c", "group").await;
         sleep(Duration::from_secs(1)).await;
 
         // 发消息
-        let m = ActionMessage::SendToGroup {
-            message: "rust send group".to_string(),
-            group: vec!["group".to_string()],
-            exclude_client_id: None,
-            raw: None,
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
+        let _ = send_group(
+            dispatcher_service.clone(),
+            "rust sdk 呼叫group 1",
+            "group",
+            None,
+            None,
+        )
+        .await;
 
         sleep(Duration::from_secs(1)).await;
 
         // 退出组
-        let m = ActionMessage::LeaveGroup {
-            client_id: "7f0000010b5400000003".to_string(),
-            group: "group".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
+        let _ = leave_group(dispatcher_service.clone(), "7f0000010b540000000c", "group").await;
 
         sleep(Duration::from_secs(1)).await;
 
         // 发消息不应该受到
-        let m = ActionMessage::SendToGroup {
-            message: "rust send group".to_string(),
-            group: vec!["group leave".to_string()],
-            exclude_client_id: None,
-            raw: None,
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
+        let _ = send_group(
+            dispatcher_service.clone(),
+            "rust sdk 呼叫group 2",
+            "gruop",
+            None,
+            None,
+        )
+        .await;
 
         sleep(Duration::from_secs(1)).await;
         println!("done");
     }
 
     #[actix_rt::test]
-    async fn bind_uid() {
+    async fn test_bind_uid() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let m = ActionMessage::BindUid {
-            client_id: "7f0000010b5400000001".to_string(),
-            uid: "uid_1".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
+        let _ = bind_uid(dispatcher_service.clone(), "7f0000010b5400000002", "uid1").await;
 
         sleep(Duration::from_secs(1)).await;
 
         // 发消息
-        let m = ActionMessage::SendToUid {
-            uid: vec!["uid_1".to_string()],
-            body: "这是rust sdk发送给uid_1的".to_string(),
-        };
-        let _ = dispatcher_service.do_send_async(m).await;
+        let _ = send_uid(dispatcher_service, "uid1", "这是rust sdk发送给uid1").await;
 
         sleep(Duration::from_secs(1)).await;
         println!("done");
