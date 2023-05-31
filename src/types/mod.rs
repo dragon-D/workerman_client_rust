@@ -2,11 +2,8 @@ pub mod gateway_protocol;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tokio::sync::{mpsc, oneshot};
 use xtra::prelude::*;
-
-use crate::dispatcher::DispatcherService;
 
 pub type ChannelGatewayData = (String, Vec<u8>);
 
@@ -145,7 +142,7 @@ pub enum ProtocolData<T> {
 pub struct GatewayRegisterStart();
 
 impl Message for GatewayRegisterStart {
-    type Result = Result<()>;
+    type Result = Result<(bool)>;
 }
 
 /// 调度器初始化开始

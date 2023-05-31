@@ -2,13 +2,11 @@ use anyhow::Result;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use std::thread::sleep;
-use tokio::io::{self, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf, WriteHalf};
-use tokio::net::tcp::OwnedReadHalf;
+use tokio::io::{AsyncReadExt,ReadHalf};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 use tokio_util::codec::{Framed, LinesCodec};
-use xtra::{Actor, Address};
+use xtra::Address;
 
 use crate::gateway_management::GatewayManagement;
 use crate::types::*;
@@ -40,7 +38,7 @@ impl RegisterClient {
         tokio::spawn(
             async move { Self::gateway_spawn_reader(stream, dispatcher_service_cp).await },
         );
-
+        info!("register connection ok");
         Ok(RegisterClient {
             address: address,
             register_status: true,
@@ -61,19 +59,9 @@ impl RegisterClient {
         Ok(())
     }
 
-    pub async fn gateway_tryconnection(&mut self) -> Result<()> {
-        match TcpStream::connect("127.0.0.1:1238").await {
+    pub async fn register_tryconnection(&mut self) -> Result<()> {
+        match TcpStream::connect(&self.address).await {
             Ok(socket) => {
-                // let (mut gateway_rd, mut wr) = io::split(socket);
-                // let event = "{\"event\":\"worker_connect\",\"secret_key\":\"\"}\n".to_string();
-                // wr.write(event.as_bytes()).await?;
-                // self.register_status = true;
-                // self.register_write = wr;
-                // let gm_service = self.gm_service.clone();
-                // tokio::spawn(
-                //     async move { Self::gateway_spawn_reader(gateway_rd, gm_service).await },
-                // );
-
                 let framed = Framed::new(socket, LinesCodec::new());
                 let (mut slnk, gateway_rd) = framed.split::<String>();
                 let event = "{\"event\":\"worker_connect\",\"secret_key\":\"\"}".to_string();
@@ -84,6 +72,7 @@ impl RegisterClient {
                 tokio::spawn(
                     async move { Self::gateway_spawn_reader(gateway_rd, gm_service).await },
                 );
+                info!("register tryconnection ok");
             }
             Err(e) => {
                 self.register_status = false;
@@ -144,57 +133,6 @@ impl RegisterClient {
                     let _ = gm.do_send_async(RegisterMessage(buffer.into_bytes())).await;
                 }
             }
-
-            // match reader.next().await {
-            //     // match reader.read(&mut buf[..]).await {
-            //     Ok(0) => {
-            //         //修改注册中心连接状态
-            //         println!("read 0 bytes");
-            //         // 断开tcp发送
-            //         loop {
-            //             //先修改状态
-            //             sleep(Duration::from_secs(5));
-            //             let stat = {
-            //                 if let Ok(status) = gm.send(RegisterClose("".to_string())).await {
-            //                     status
-            //                 } else {
-            //                     false
-            //                 }
-            //             };
-            //             println!("stat {:?}", stat);
-            //             if stat {
-            //                 return;
-            //             }
-            //         }
-            //     }
-            //     Ok(n) => {
-            //         let buffer = &buf[..n];
-            //         // 接收tcp
-            //         println!("read {} bytes: {:?}", n, String::from_utf8_lossy(buffer));
-            //         let _ = gm.do_send_async(RegisterMessage(buffer.to_vec())).await;
-            //         // return;
-            //     }
-            //     Err(_) => {
-            //         //修改注册中心连接状态
-            //         // REGISTER_STATUS.store(false, Ordering::Relaxed);
-            //         println!("read error");
-            //         loop {
-            //             //先修改状态
-            //             sleep(Duration::from_secs(5));
-            //             let stat = {
-            //                 if let Ok(status) = gm.send(RegisterClose("".to_string())).await {
-            //                     status
-            //                 } else {
-            //                     false
-            //                 }
-            //             };
-            //             println!("stat {:?}", stat);
-            //             if stat {
-            //                 return;
-            //             }
-            //         }
-            //     }
-            // }
         }
     }
 

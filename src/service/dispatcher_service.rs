@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::collections::VecDeque;
-use xtra::prelude::{Context, Handler, Message, *};
-use xtra::spawn::Tokio as xTokio;
+use xtra::prelude::{Context, Handler};
 use xtra::Actor;
 
 use crate::dispatcher::DispatcherService;
@@ -92,8 +91,12 @@ impl Handler<ActionMessage> for DispatcherService {
                 exclude_client_id,
                 raw,
             } => {
-                self.send_to_group(group, message, exclude_client_id, raw)
-                    .await;
+                match self.send_to_group(group, message, exclude_client_id, raw).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("send_to_group error, {}", e);
+                    }
+                }
             }
             ActionMessage::GetUidListGroup { group, tx } => {
                 let _ = self.get_uid_list_group(group, tx).await;
@@ -113,20 +116,40 @@ impl Handler<ActionMessage> for DispatcherService {
                 }
             },
             ActionMessage::JoinGroup { client_id, group } => {
-                self.join_group(client_id, group).await;
+                match self.join_group(client_id, group).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("join_group error, {}", e);
+                    }
+                }
             }
             ActionMessage::SendToUid { uid, body } => {
-                self.send_to_uid(uid, body).await;
+                match self.send_to_uid(uid, body).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("send_to_uid error, {}", e);
+                    }
+                }
             }
             ActionMessage::LeaveGroup { client_id, group } => {
-                self.leave_group(client_id, group).await;
+                match self.leave_group(client_id, group).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("leave_group error, {}", e);
+                    }
+                }
             }
             ActionMessage::UnBindUid { client_id, uid } => {}
             ActionMessage::BindUid { client_id, uid } => {
-                self.bind_uid(client_id, uid).await;
+                match self.bind_uid(client_id, uid).await {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("bind_uid error, {}", e);
+                    }
+                }
             }
             _ => {
-                println!("##########   没有匹配 ----------- ");
+                error!("##########   没有匹配 ----------- ");
             }
         }
         Ok(())

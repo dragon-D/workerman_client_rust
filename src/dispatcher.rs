@@ -1,9 +1,8 @@
 use anyhow::Result;
 use chrono::prelude::*;
-use iptools::ipv4::{ip2long, long2ip};
+use iptools::ipv4::{long2ip};
 use serde_json::json;
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::{timeout, Duration, Instant};
+use tokio::sync::{mpsc};
 use xtra::Address;
 
 use std::collections::{HashMap, VecDeque};
@@ -106,14 +105,8 @@ impl DispatcherService {
     pub async fn join_group(&mut self, client_id: String, group: String) -> Result<()> {
         let seq = self.seq();
         let address_data = Context::client_id_to_address(client_id).unwrap_or(LocalAddress::new());
-        let address = format!(
-            "{}:{}",
-            long2ip(address_data.local_ip),
-            address_data.local_port
-        );
 
         // 构建数据
-        let body = ProtocolData::DataStr::<String>("".to_string());
         let mut gatewayprotocol = PHPGatewayProtocol::new();
         gatewayprotocol.cmd = PHPGatewayProtocol::CMD_JOIN_GROUP;
         gatewayprotocol.set_connection_id(address_data.connection_id);
@@ -150,7 +143,7 @@ impl DispatcherService {
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_SEND_TO_GROUP;
 
-        if let Some(x) = raw {
+        if let Some(_x) = raw {
             gate_protocol.flag |= PHPGatewayProtocol::FLAG_NOT_CALL_ENCODE;
         }
         let body = ProtocolData::DataStr::<String>(message);
@@ -189,11 +182,6 @@ impl DispatcherService {
     pub async fn leave_group(&mut self, client_id: String, group: String) -> Result<()> {
         let seq = self.seq();
         let address_data = Context::client_id_to_address(client_id).unwrap_or(LocalAddress::new());
-        let address = format!(
-            "{}:{}",
-            long2ip(address_data.local_ip),
-            address_data.local_port
-        );
 
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_LEAVE_GROUP;
@@ -213,11 +201,6 @@ impl DispatcherService {
     pub async fn bind_uid(&mut self, client_id: String, uid: String) -> Result<()> {
         let seq = self.seq();
         let address_data = Context::client_id_to_address(client_id).unwrap_or(LocalAddress::new());
-        let address = format!(
-            "{}:{}",
-            long2ip(address_data.local_ip),
-            address_data.local_port
-        );
 
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_BIND_UID;
@@ -339,7 +322,7 @@ impl DispatcherService {
     pub async fn select(
         &mut self,
         mut fields: Vec<String>,
-        mut wheres: HashMap<String, Vec<String>>,
+        wheres: HashMap<String, Vec<String>>,
     ) -> Result<HashMap<(u32, u16), PHPGatewayProtocol>> {
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_SELECT;
@@ -359,7 +342,7 @@ impl DispatcherService {
             return g;
         });
 
-        let mut ext_data = ExtData {
+        let ext_data = ExtData {
             fields,
             r#where: PHPGateSelectWhere::new(uid.clone(), HashMap::new(), groups),
         };

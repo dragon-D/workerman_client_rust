@@ -7,26 +7,22 @@ pub mod types;
 
 use crate::dispatcher::DispatcherService;
 use crate::gateway_management::GatewayManagement;
-use crate::register::RegisterClient;
-use crate::types::{DispatcherStart, *};
+use crate::types::*;
 use std::collections::HashMap;
 
 use anyhow::Result;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use tokio::time::{sleep, timeout, Duration};
 use xtra::{Address, Context};
 
 use crate::types::gateway_protocol::{
     decode_body_int, decode_body_map, decode_body_vec, PHPGatewayResponse,
 };
-use std::env::set_var;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 
 pub async fn run_dispatcher(address: Vec<String>) -> Address<DispatcherService> {
-    env_logger::init();
     let (gateway_managen_service, gateway_managen_services_ctx) = Context::new(None);
     let (dispatcher_service, dispatcher_services_ctx) = Context::new(None);
 
@@ -41,10 +37,22 @@ pub async fn run_dispatcher(address: Vec<String>) -> Address<DispatcherService> 
     });
 
     // 注册中心加载运行
-    let _ = gateway_managen_service
-        .do_send_async(GatewayRegisterStart())
-        .await;
-
+    let stat = gateway_managen_service
+        .send(GatewayRegisterStart())
+        .await
+        .unwrap();
+    match stat {
+        Ok(b) => {
+            if b {
+                info!("注册中心启动成功");
+            } else {
+              panic!("注册中心启动失败")
+            }
+        }
+        Err(e) => {
+            panic!("注册中心启动失败: {:?}", e)
+        }
+    }
     // 调度任务
     let d_actor = DispatcherService::new(gateway_managen_service.clone());
     tokio::spawn(async move {
@@ -333,5 +341,11 @@ mod tests {
         let groups =
             get_uid_list_group(dispatcher_service, vec!["86490735033065472".to_string()]).await;
         println!("done get_group group={:?}", groups);
+    }
+
+    #[actix_rt::test]
+    async fn test_get() {
+        println!("done get_group group={:?}", 123);
+        assert_eq!(1, 0);
     }
 }

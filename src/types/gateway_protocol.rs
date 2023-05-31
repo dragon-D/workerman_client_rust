@@ -6,7 +6,6 @@ use iptools::ipv4::{ip2long, long2ip};
 use serde::{Deserialize, Serialize};
 use serde_php::{from_bytes, to_vec};
 use std::collections::HashMap;
-use std::fs::read;
 
 use super::{LocalAddress, ProtocolData};
 
@@ -483,4 +482,5 @@ pub fn decode_php() {
     let data_buffer = br#"a:1:{i:3;a:3:{s:7:"session";s:213:"a:7:{s:7:"user_id";s:17:"99050199523139584";s:9:"device_id";s:2:"12";s:7:"version";s:5:"1.3.0";s:17:"client_properties";s:0:"";s:9:"client_ip";s:7:"unknown";s:11:"online_time";i:1642341187;s:13:"guild_pending";N;}";s:3:"uid";s:3:"123";s:6:"groups";a:2:{i:0;s:1:"1";i:1;s:1:"2";}}}"#;
     let php_arr = from_bytes::<HashMap<u32, PHPGatewayResponse>>(data_buffer).unwrap();
     println!("php {:?}", php_arr);
+    assert_eq!(1,1)
 }

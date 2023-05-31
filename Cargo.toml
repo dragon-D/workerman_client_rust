@@ -1,5 +1,5 @@
 [package]
-name = "gateway_sdk"
+name = "workerman_client_rust"
 version = "0.1.0"
 edition = "2021"
 

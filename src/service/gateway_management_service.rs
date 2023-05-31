@@ -1,7 +1,6 @@
 use anyhow::Result;
-use iptools::ipv4::{ip2long, long2ip};
-use xtra::prelude::{Context, Handler, Message, *};
-use xtra::spawn::Tokio as xTokio;
+use iptools::ipv4::long2ip;
+use xtra::prelude::{Context, Handler};
 use xtra::Actor;
 
 use crate::gateway_management::GatewayManagement;
@@ -29,20 +28,27 @@ impl Handler<GatewayConnectionSucess> for GatewayManagement {
 /// 获取网关地址
 #[async_trait::async_trait]
 impl Handler<GatewayRegisterStart> for GatewayManagement {
-    async fn handle(&mut self, msg: GatewayRegisterStart, _ctx: &mut Context<Self>) -> Result<()> {
+    async fn handle(
+        &mut self,
+        msg: GatewayRegisterStart,
+        _ctx: &mut Context<Self>,
+    ) -> Result<bool> {
+        let mut stat = true;
         for register_address in self.register_address.iter() {
             match RegisterClient::new(register_address.clone(), self.gm.clone()).await {
                 Ok(register_client) => {
                     self.register_client = Some(register_client);
                     self.register_address_current = register_address.clone();
+                    stat = true;
                     break;
                 }
                 Err(_) => {
+                    stat = false;
                     continue;
                 }
             }
         }
-        Ok(())
+        Ok(stat)
     }
 }
 
@@ -52,7 +58,7 @@ impl Handler<RegisterClose> for GatewayManagement {
     async fn handle(&mut self, msg: RegisterClose, _ctx: &mut Context<Self>) -> bool {
         let register = self.register_client.as_mut().unwrap();
         let mut status = false;
-        let _ = register.gateway_tryconnection().await;
+        let _ = register.register_tryconnection().await;
         status = register.register_status;
         return status;
     }

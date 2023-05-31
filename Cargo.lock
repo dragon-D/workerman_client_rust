@@ -326,31 +326,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gateway_sdk"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "anyhow",
- "async-trait",
- "bincode",
- "byteorder",
- "bytes",
- "chrono",
- "env_logger",
- "futures-util",
- "hex",
- "iptools",
- "log",
- "once_cell",
- "serde",
- "serde_json",
- "serde_php",
- "tokio",
- "tokio-util",
- "xtra",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1086,6 +1061,31 @@ name = "windows_x86_64_msvc"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
+
+[[package]]
+name = "workerman_client_rust"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "byteorder",
+ "bytes",
+ "chrono",
+ "env_logger",
+ "futures-util",
+ "hex",
+ "iptools",
+ "log",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "serde_php",
+ "tokio",
+ "tokio-util",
+ "xtra",
+]
 
 [[package]]
 name = "xtra"

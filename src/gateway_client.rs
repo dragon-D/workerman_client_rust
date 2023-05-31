@@ -1,22 +1,13 @@
 use anyhow::Result;
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{BytesMut};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
-use std::thread::sleep;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::Duration;
-use tokio_util::codec::{Decoder, Encoder, Framed, LinesCodec};
-use xtra::prelude::{Context, Handler, Message, *};
-use xtra::spawn::Tokio as xTokio;
+use tokio_util::codec::{Decoder, Encoder, Framed};
 use xtra::{Actor, Address};
 
 use crate::dispatcher::DispatcherService;
-use crate::gateway_management::GatewayManagement;
-use crate::register::RegisterClient;
 use crate::types::{gateway_protocol::PHPGatewayProtocol, *};
 
 type LineFramedStream = SplitStream<Framed<TcpStream, RstRespCodec>>;
@@ -96,7 +87,7 @@ impl GatewayClient {
         dispatcher_service: Address<DispatcherService>,
         address: String,
     ) {
-        let mut buf = vec![0; 16384];
+        // let mut buf = vec![0; 16384];
         loop {
             match reader.next().await {
                 None => {
@@ -111,6 +102,7 @@ impl GatewayClient {
                         }
                         Ok(_) => (),
                     }
+                    info!("gateway close");
                     break;
                 }
                 Some(Err(e)) => {
