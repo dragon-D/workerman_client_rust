@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 use crate::gateway_management::GatewayManagement;
 use crate::types::{
     gateway_protocol::{Context, ExtData, PHPGateSelectWhere, PHPGatewayProtocol},
-    ChannelGatewayData, GatewayRequest, GatewaySeq, LocalAddress, ProtocolData,
+    ChannelGatewayData, GatewayRequest, GatewaySeq, LocalAddress, ProtocolData,MoreGatewayRequest
 };
 
 pub struct DispatcherService {
@@ -151,24 +151,47 @@ impl DispatcherService {
 
         // 分组发送，没有排除的client_id，直接发送
         let default_ext_data_buffer = json!({
-            "group": group,
+            "group": group.clone(),
             "exclude": null,
         });
 
         let seq = self.seq();
         let gateway_managen = self.gateway_managen.clone();
+        gate_protocol.set_ext_data(default_ext_data_buffer.to_string());
+        let buffer = gate_protocol.encode();
         if exclude_client_id.is_none() {
-            gate_protocol.set_ext_data(default_ext_data_buffer.to_string());
-            let buffer = gate_protocol.encode();
             let req = GatewayRequest {
                 seq,
-                respond_to: buffer,
+                respond_to: buffer.clone(),
                 address: None,
                 tx_response: None,
             };
             let _ = gateway_managen.send(req).await?;
         }
 
+        // 分组发送，有排除的client_id，需要将client_id转换成对应gateway进程内的connectionId
+        let address_connection_map =
+            Self::client_id_array_to_address_list(exclude_client_id.unwrap());
+
+        let mut address_request: HashMap<String, Vec<u8>> = HashMap::new();
+        for (address, connection_ids) in address_connection_map {
+            let mut gate_protocol_clone = gate_protocol.clone();
+            let ext_data = json!({
+                    "group": group,
+                    "exclude": connection_ids,
+                });
+            gate_protocol_clone.set_ext_data(ext_data.to_string());
+            let buffer = gate_protocol_clone.encode();
+            address_request.insert(address, buffer);
+        }
+
+        let req = MoreGatewayRequest {
+            seq,
+            respond_to: buffer,
+            address_request: address_request,
+            tx_response: None,
+        };
+        let _ = gateway_managen.send(req).await?;
         Ok(())
     }
 
@@ -436,5 +459,40 @@ impl DispatcherService {
         let _ = gateway_managen.do_send_async(req).await?;
 
         Ok(())
+    }
+
+    /// 将clientid数组转换成address数组
+    ///
+    pub fn client_id_array_to_address_list(
+        client_ids: Vec<String>,
+    ) -> HashMap<String, HashMap<u32, u32>> {
+        let mut address_connnection_map: HashMap<String, HashMap<u32, u32>> = HashMap::new();
+        for client_id in client_ids {
+            // let connection_id = Context::get_connnection_id(client_id);
+            let address_data = Context::client_id_to_address(client_id)
+                .unwrap_or(LocalAddress::new());
+            if address_data.local_ip == 0 {
+                continue;
+            }
+            let address = format!(
+                "{}:{}",
+                long2ip(address_data.local_ip),
+                address_data.local_port
+            );
+            let connection_id = address_data.connection_id;
+            if address_connnection_map.contains_key(&address) {
+                address_connnection_map
+                    .get_mut(&address)
+                    .unwrap()
+                    .insert(connection_id, connection_id);
+            } else {
+                address_connnection_map.insert(address.clone(), HashMap::new());
+                address_connnection_map
+                    .get_mut(&address)
+                    .unwrap()
+                    .insert(connection_id, connection_id);
+            }
+        }
+        address_connnection_map
     }
 }

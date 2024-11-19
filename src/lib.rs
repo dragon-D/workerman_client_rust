@@ -162,7 +162,7 @@ pub async fn send_group(
         exclude_client_id: exclude_client_id,
         raw: raw,
     };
-    let res = dispatch.do_send_async(msg).await?;
+    let _ = dispatch.do_send_async(msg).await?;
     Ok(())
 }
 
@@ -176,7 +176,7 @@ pub async fn cid_join_group(
         client_id: client_id.to_string(),
         group: group.to_string(),
     };
-    let res = dispatch.do_send_async(msg).await?;
+    let _ = dispatch.do_send_async(msg).await?;
     Ok(())
 }
 
@@ -190,7 +190,7 @@ pub async fn send_uid(
         uid: vec![uid.to_string()],
         body: message.to_string(),
     };
-    let res = dispatch.do_send_async(msg).await?;
+    let _ = dispatch.do_send_async(msg).await?;
     Ok(())
 }
 
@@ -204,7 +204,7 @@ pub async fn leave_group(
         client_id: cid.to_string(),
         group: group.to_string(),
     };
-    let res = dispatch.do_send_async(msg).await?;
+    let _ = dispatch.do_send_async(msg).await?;
     Ok(())
 }
 
@@ -214,7 +214,7 @@ pub async fn bind_uid(dispatch: Address<DispatcherService>, cid: &str, uid: &str
         client_id: cid.to_string(),
         uid: uid.to_string(),
     };
-    let res = dispatch.do_send_async(msg).await?;
+    let _ = dispatch.do_send_async(msg).await?;
     Ok(())
 }
 
@@ -262,7 +262,7 @@ mod tests {
             dispatcher_service.clone(),
             "rust sdk 呼叫group 1",
             "86490735033065472",
-            None,
+            Some(vec!["7f0000010b5400000002".to_string()]),
             None,
         )
         .await;

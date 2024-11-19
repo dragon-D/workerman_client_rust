@@ -1,5 +1,6 @@
 pub mod gateway_protocol;
 
+use std::collections::HashMap;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
@@ -191,4 +192,18 @@ pub struct GatewayToStatus {
 
 impl Message for GatewayToStatus {
     type Result = i64;
+}
+
+/// 多网关发送不同的数据
+/// 参数address_request: [(ip, port),[8,8,8,8]] 二进制数据
+#[derive(Debug)]
+pub struct MoreGatewayRequest {
+    pub seq: u32,
+    pub respond_to: Vec<u8>,
+    pub address_request: HashMap<String, Vec<u8>>,
+    pub tx_response: Option<mpsc::Sender<ChannelGatewayData>>,
+}
+
+impl Message for MoreGatewayRequest {
+    type Result = Result<()>;
 }

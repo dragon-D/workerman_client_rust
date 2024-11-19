@@ -122,3 +122,25 @@ impl Handler<GatewayToStatus> for GatewayManagement {
         1
     }
 }
+
+
+// 发送数到网关
+#[async_trait::async_trait]
+impl Handler<MoreGatewayRequest> for GatewayManagement {
+    async fn handle(&mut self, msg: MoreGatewayRequest, ctx: &mut Context<Self>) -> Result<()> {
+
+        for (addr, gateway) in self.connect_gateway.iter_mut() {
+
+            if msg.address_request.contains_key(addr) {
+                if let Some(raw) = msg.address_request.get(addr) {
+                    let _ = gateway.send(raw.clone()).await?;
+                }
+            } else {
+                let data = msg.respond_to.clone();
+                let _ = gateway.send(data).await?;
+            }
+        }
+
+        Ok(())
+    }
+}
