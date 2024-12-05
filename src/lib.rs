@@ -151,13 +151,13 @@ pub async fn get_client_id_by_uid(
 /// 分组下广播所有在线用户
 pub async fn send_group(
     dispatch: Address<DispatcherService>,
-    mesaage: &str,
+    mesaage: &[u8],
     group: &str,
     exclude_client_id: Option<Vec<String>>,
     raw: Option<bool>,
 ) -> Result<()> {
     let msg = ActionMessage::SendToGroup {
-        message: mesaage.to_string(),
+        message: mesaage.to_vec(),
         group: vec![group.to_string()],
         exclude_client_id: exclude_client_id,
         raw: raw,
@@ -184,11 +184,11 @@ pub async fn cid_join_group(
 pub async fn send_uid(
     dispatch: Address<DispatcherService>,
     uid: &str,
-    message: &str,
+    message: &[u8],
 ) -> Result<()> {
     let msg = ActionMessage::SendToUid {
         uid: vec![uid.to_string()],
-        body: message.to_string(),
+        message: message.to_vec(),
     };
     let _ = dispatch.do_send_async(msg).await?;
     Ok(())
@@ -230,7 +230,7 @@ mod tests {
         let _ = send_uid(
             dispatcher_service,
             "86490735033065472",
-            "这是rust sdk发送的",
+            "这是rust sdk发送的".as_bytes(),
         )
         .await;
         sleep(Duration::from_secs(1)).await;
@@ -241,12 +241,12 @@ mod tests {
     #[actix_rt::test]
     async fn test_join_gorup() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let _ = cid_join_group(dispatcher_service.clone(), "7f0000010b540000000c", "group").await;
+        let _ = cid_join_group(dispatcher_service.clone(), "7f0000010f3c00000001", "group1").await;
         sleep(Duration::from_secs(1)).await;
         let _ = send_group(
             dispatcher_service.clone(),
-            "呼叫group 1",
-            "group",
+            "呼叫group 1".as_bytes(),
+            "group1",
             None,
             None,
         )
@@ -260,12 +260,20 @@ mod tests {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
         let _ = send_group(
             dispatcher_service.clone(),
-            "rust sdk 呼叫group 1",
-            "86490735033065472",
-            Some(vec!["7f0000010b5400000002".to_string()]),
+            "rust sdk 呼叫group 1".as_bytes(),
+            "group1",
+            Some(vec!["7f0000010f3c00000001".to_string()]),
             None,
         )
         .await;
+        let _ = send_group(
+            dispatcher_service.clone(),
+            "rust sdk 呼叫group 1 过滤cid".as_bytes(),
+            "group1",
+            Some(vec!["7f0000010f3c00000001".to_string()]),
+            None,
+        )
+            .await;
         sleep(Duration::from_secs(1)).await;
         println!("done");
     }
@@ -279,7 +287,7 @@ mod tests {
         // 发消息
         let _ = send_group(
             dispatcher_service.clone(),
-            "rust sdk 呼叫group 1",
+            "rust sdk 呼叫group 1".as_bytes(),
             "group",
             None,
             None,
@@ -296,7 +304,7 @@ mod tests {
         // 发消息不应该受到
         let _ = send_group(
             dispatcher_service.clone(),
-            "rust sdk 呼叫group 2",
+            "rust sdk 呼叫group 2".as_bytes(),
             "gruop",
             None,
             None,
@@ -310,12 +318,12 @@ mod tests {
     #[actix_rt::test]
     async fn test_bind_uid() {
         let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
-        let _ = bind_uid(dispatcher_service.clone(), "7f0000010b5400000002", "uid1").await;
+        let _ = bind_uid(dispatcher_service.clone(), "7f0000010f3c00000002", "uid1").await;
 
         sleep(Duration::from_secs(1)).await;
 
         // 发消息
-        let _ = send_uid(dispatcher_service, "uid1", "这是rust sdk发送给uid1").await;
+        let _ = send_uid(dispatcher_service, "uid1", "这是rust sdk发送给uid1".as_bytes()).await;
 
         sleep(Duration::from_secs(1)).await;
         println!("done");
@@ -348,4 +356,43 @@ mod tests {
         println!("done get_group group={:?}", 123);
         assert_eq!(1, 0);
     }
+
+    #[actix_rt::test]
+    async fn test_unclient_id() {
+        let client_id = "7f0000010f3d00000001".to_string();
+        let client = crate::types::gateway_protocol::Context::client_id_to_address(client_id).unwrap_or(LocalAddress::new());
+        println!("client ={:?}", client);
+
+        let a = crate::types::gateway_protocol::Context::address_to_clientId("127.0.0.1", 3901, 1);
+        println!("client id = {:?}", a);
+
+        assert_eq!(1, 0);
+    }
+
+    #[actix_rt::test]
+    async fn test_msgencode() {
+        let dispatcher_service = run_dispatcher(vec!["127.0.0.1:1238".to_string()]).await;
+        let _ = cid_join_group(dispatcher_service.clone(), "7f0000010f3c00000001", "group1").await;
+        sleep(Duration::from_secs(1)).await;
+
+        // 序列化数据
+        let command = 1;
+        let seq = 1;
+        // let protocol = Protocol::Text;
+        let result = b"Hello  11111".to_vec();
+        // use libteamgaga::message_protocol::*;
+        // let result: Vec<u8> = pack(command, seq, protocol, CompressFormat::None, result.clone()).unwrap_or(vec![]);
+
+        let _ = send_group(
+            dispatcher_service.clone(),
+            result.as_slice(),
+            "group1",
+            None,
+            None,
+        )
+            .await;
+        sleep(Duration::from_secs(1)).await;
+        println!("done join_gorup");
+    }
+
 }

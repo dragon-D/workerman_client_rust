@@ -123,8 +123,8 @@ impl Handler<ActionMessage> for DispatcherService {
                     }
                 }
             }
-            ActionMessage::SendToUid { uid, body } => {
-                match self.send_to_uid(uid, body).await {
+            ActionMessage::SendToUid { uid, message } => {
+                match self.send_to_uid(uid, message).await {
                     Ok(_) => (),
                     Err(e) => {
                         error!("send_to_uid error, {}", e);

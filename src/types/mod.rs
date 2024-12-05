@@ -39,13 +39,13 @@ pub enum ActionMessage {
     },
     SendToGroup {
         group: Vec<String>,
-        message: String,
+        message: Vec<u8>,
         exclude_client_id: Option<Vec<String>>,
         raw: Option<bool>,
     },
     SendToUid {
         uid: Vec<String>,
-        body: String,
+        message: Vec<u8>,
     },
     JoinGroup {
         client_id: String,
@@ -136,6 +136,8 @@ pub enum ProtocolData<T> {
     DataObject(T),
 
     DataInt(u32),
+
+    DataVec(Vec<u8>),
 }
 
 /// 注册中心开始

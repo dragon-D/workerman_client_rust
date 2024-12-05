@@ -21,8 +21,8 @@ pub struct PHPGatewayProtocol {
     pub flag: u8,
     pub gateway_port: u16,
     pub ext_len: Option<u32>,
-    pub ext_data: Option<String>,
-    pub body: Option<String>,
+    pub ext_data: Option<Vec<u8>>,
+    pub body: Option<Vec<u8>>,
 }
 
 pub struct Context {
@@ -205,28 +205,32 @@ impl PHPGatewayProtocol {
         self.connection_id = c_id;
     }
 
-    pub fn set_ext_data(&mut self, ext: String) {
+    pub fn set_ext_data(&mut self, ext: Vec<u8>) {
         self.ext_data = Some(ext);
     }
 
     pub fn set_body<T: Serialize + Clone>(&mut self, body: ProtocolData<T>) {
         // let body = serde_json::to_string(&body).unwrap_or(String::new());
         // let c = ProtocolData::DataObject::<T>(body);
-        let mut body_str = String::new();
+        let mut body_str = Vec::new();
         let mut flag = 0u8;
         match body {
             ProtocolData::DataInt(body) => {
-                body_str = body.to_string();
+                body_str = body.to_be_bytes().to_vec();
                 flag = 1;
             }
             ProtocolData::DataStr(body) => {
-                body_str = body;
+                body_str = body.into_bytes();
                 flag = 1;
             }
             ProtocolData::DataObject(body) => {
-                let b = to_vec(&body).unwrap_or(Vec::new());
-                body_str = String::from_utf8(b).unwrap_or(String::new());
+                // let b = to_vec(&body).unwrap_or(Vec::new());
+                body_str = to_vec(&body).unwrap_or(Vec::new());
                 flag = 0;
+            }
+            ProtocolData::DataVec(body) => {
+                body_str = body;
+                flag = 1;
             }
         }
         self.body = Some(body_str);
@@ -246,14 +250,14 @@ impl PHPGatewayProtocol {
             flag: 0,
             gateway_port: 0,
             ext_len: Some(0),
-            ext_data: Some("".to_owned()),
-            body: Some("".to_owned()),
+            ext_data: None,
+            body: None,
         }
     }
 
     pub fn encode(&mut self) -> Vec<u8> {
         // let b = String::from_utf8_lossy(&body);
-        let mut ext_data = String::new();
+        let mut ext_data = Vec::new();
         let ext_len = if let Some(x) = &self.ext_data {
             ext_data = x.clone();
             x.len() as u32
@@ -261,7 +265,7 @@ impl PHPGatewayProtocol {
             0u32
         };
         let body = if let Some(x) = &self.body {
-            x.as_bytes()
+            x.as_slice()
         } else {
             &[]
         };
@@ -278,14 +282,14 @@ impl PHPGatewayProtocol {
         buf.put_u8(self.flag);
         buf.put_u16(self.gateway_port);
         buf.put_u32(ext_len);
-        buf.put(ext_data.as_bytes());
+        buf.put(ext_data.as_slice());
         buf.put(body);
         return buf.to_vec();
     }
 
     pub fn encodeBytesMut(&mut self) -> BytesMut {
         // let b = String::from_utf8_lossy(&body);
-        let mut ext_data = String::new();
+        let mut ext_data = Vec::new();
         let ext_len = if let Some(x) = &self.ext_data {
             ext_data = x.clone();
             x.len() as u32
@@ -293,7 +297,7 @@ impl PHPGatewayProtocol {
             0u32
         };
         let body = if let Some(x) = &self.body {
-            x.as_bytes()
+            x.as_slice()
         } else {
             &[]
         };
@@ -310,7 +314,7 @@ impl PHPGatewayProtocol {
         buf.put_u8(self.flag);
         buf.put_u16(self.gateway_port);
         buf.put_u32(ext_len);
-        buf.put(ext_data.as_bytes());
+        buf.put(ext_data.as_slice());
         buf.put(body);
         return buf;
     }
@@ -327,15 +331,16 @@ impl PHPGatewayProtocol {
             .unwrap();
         let ext_len = protocol.big_u32(&buff[24..Self::HEAD_LEN as usize]);
 
-        let mut ext_data = String::new();
-        let mut body = String::new();
+        let mut ext_data = Vec::new();
+        let mut body = Vec::new();
         if ext_len > 0 {
             let ext_data_buff = &buff[Self::HEAD_LEN as usize..ext_len as usize];
-            ext_data = String::from_utf8_lossy(&ext_data_buff).to_string();
+            // ext_data = String::from_utf8_lossy(&ext_data_buff).to_string();
+            ext_data = ext_data_buff.to_vec();
             if protocol.flag & Self::FLAG_BODY_IS_SCALAR == 1 {
                 let body_buff = &buff[Self::HEAD_LEN as usize + ext_len as usize..];
-                let body_str = String::from_utf8_lossy(body_buff).to_string();
-                body = body_str;
+                // let body_str = String::from_utf8_lossy(body_buff).to_string();
+                body = body_buff.to_vec();
             } else {
                 //解开php的unserialize
                 let body_buff = &buff[Self::HEAD_LEN as usize + ext_len as usize..];
@@ -345,8 +350,8 @@ impl PHPGatewayProtocol {
         } else {
             if protocol.flag & Self::FLAG_BODY_IS_SCALAR == 1 {
                 let body_buff = &buff[Self::HEAD_LEN as usize..];
-                let body_str = String::from_utf8_lossy(body_buff).to_string();
-                body = body_str;
+                // let body_str = String::from_utf8_lossy(body_buff).to_string();
+                body = body_buff.to_vec();
             } else {
                 //解开php的unserialize
                 let body_buff = &buff[Self::HEAD_LEN as usize..];

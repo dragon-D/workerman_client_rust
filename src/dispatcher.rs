@@ -79,14 +79,14 @@ impl DispatcherService {
     /// 向所有client绑定的uid发送消息
     /// vec<String> uid
     /// 发送数据 body
-    pub async fn send_to_uid(&mut self, uid: Vec<String>, body: String) -> Result<()> {
+    pub async fn send_to_uid(&mut self, uid: Vec<String>, message: Vec<u8>) -> Result<()> {
         let seq = self.seq();
         let mut gatewayprotocol = PHPGatewayProtocol::new();
         gatewayprotocol.cmd = PHPGatewayProtocol::CMD_SEND_TO_UID;
-        let body = ProtocolData::DataStr::<String>(body);
+        let body = ProtocolData::DataVec::<Vec<u8>>(message);
         gatewayprotocol.set_body(body);
         let ext_data = json!(uid);
-        gatewayprotocol.set_ext_data(ext_data.to_string());
+        gatewayprotocol.set_ext_data(ext_data.to_string().into_bytes());
         let buffer = gatewayprotocol.encode();
         let gateway_managen = self.gateway_managen.clone();
         let req = GatewayRequest {
@@ -110,7 +110,7 @@ impl DispatcherService {
         let mut gatewayprotocol = PHPGatewayProtocol::new();
         gatewayprotocol.cmd = PHPGatewayProtocol::CMD_JOIN_GROUP;
         gatewayprotocol.set_connection_id(address_data.connection_id);
-        gatewayprotocol.set_ext_data(group);
+        gatewayprotocol.set_ext_data(group.into_bytes());
         let buffer = gatewayprotocol.encode();
 
         let gateway_managen = self.gateway_managen.clone();
@@ -129,11 +129,11 @@ impl DispatcherService {
     /// * group             组（不允许是 0 '0' false null array()等为空的值）
     /// * message           消息
     /// * exclude_client_id 不给这些client_id发
-    /// * raw               发送原始数据（即不调用gateway的协议的encode方法）
+    /// * raw               发送原始数据（即不调用gateway的协议的encode方法,如果需要序列话必须是php的serialize方式序列化）
     pub async fn send_to_group(
         &mut self,
         group: Vec<String>,
-        message: String,
+        message: Vec<u8>,
         exclude_client_id: Option<Vec<String>>,
         raw: Option<bool>,
     ) -> Result<()> {
@@ -146,9 +146,8 @@ impl DispatcherService {
         if let Some(_x) = raw {
             gate_protocol.flag |= PHPGatewayProtocol::FLAG_NOT_CALL_ENCODE;
         }
-        let body = ProtocolData::DataStr::<String>(message);
+        let body = ProtocolData::DataVec::<Vec<u8>>(message);
         gate_protocol.set_body(body);
-
         // 分组发送，没有排除的client_id，直接发送
         let default_ext_data_buffer = json!({
             "group": group.clone(),
@@ -157,7 +156,7 @@ impl DispatcherService {
 
         let seq = self.seq();
         let gateway_managen = self.gateway_managen.clone();
-        gate_protocol.set_ext_data(default_ext_data_buffer.to_string());
+        gate_protocol.set_ext_data(default_ext_data_buffer.to_string().into_bytes());
         let buffer = gate_protocol.encode();
         if exclude_client_id.is_none() {
             let req = GatewayRequest {
@@ -167,6 +166,7 @@ impl DispatcherService {
                 tx_response: None,
             };
             let _ = gateway_managen.send(req).await?;
+            return Ok(());
         }
 
         // 分组发送，有排除的client_id，需要将client_id转换成对应gateway进程内的connectionId
@@ -180,7 +180,7 @@ impl DispatcherService {
                     "group": group,
                     "exclude": connection_ids,
                 });
-            gate_protocol_clone.set_ext_data(ext_data.to_string());
+            gate_protocol_clone.set_ext_data(ext_data.to_string().into_bytes());
             let buffer = gate_protocol_clone.encode();
             address_request.insert(address, buffer);
         }
@@ -208,7 +208,7 @@ impl DispatcherService {
 
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_LEAVE_GROUP;
-        gate_protocol.set_ext_data(group);
+        gate_protocol.set_ext_data(group.into_bytes());
         let buffer = gate_protocol.encode();
         let gateway_managen = self.gateway_managen.clone();
         let req = GatewayRequest {
@@ -227,7 +227,7 @@ impl DispatcherService {
 
         let mut gate_protocol = PHPGatewayProtocol::new();
         gate_protocol.cmd = PHPGatewayProtocol::CMD_BIND_UID;
-        gate_protocol.set_ext_data(uid);
+        gate_protocol.set_ext_data(uid.into_bytes());
         gate_protocol.set_connection_id(address_data.connection_id);
         let buffer = gate_protocol.encode();
         let gateway_managen = self.gateway_managen.clone();
@@ -251,7 +251,7 @@ impl DispatcherService {
         let seq = self.seq();
         let mut gatewayprotocol = PHPGatewayProtocol::new();
         gatewayprotocol.cmd = PHPGatewayProtocol::CMD_GET_CLIENT_ID_BY_UID;
-        gatewayprotocol.set_ext_data(uid);
+        gatewayprotocol.set_ext_data(uid.into_bytes());
         let buffer = gatewayprotocol.encode();
 
         let now = Local::now();
@@ -404,13 +404,13 @@ impl DispatcherService {
                 let mut client_ext_data = ext_data.clone();
                 client_ext_data.r#where.connection_id = new_connection_ids;
                 let ext = serde_json::to_string(&client_ext_data).unwrap_or(String::new());
-                gateway.set_ext_data(ext);
+                gateway.set_ext_data(ext.into_bytes());
             }
 
             // 有其它条件，则还是需要向所有gateway发送
             if wheres.len() != 1 {
                 let ext = serde_json::to_string(&ext_data).unwrap_or(String::new());
-                gate_protocol.set_ext_data(ext);
+                gate_protocol.set_ext_data(ext.into_bytes());
                 gateway_data_list.clear();
                 gateway_data_list.insert((1, 1), gate_protocol);
             }
@@ -419,7 +419,7 @@ impl DispatcherService {
         } else {
             // 查询所有网关
             let ext = serde_json::to_string(&ext_data).unwrap_or(String::new());
-            gate_protocol.set_ext_data(ext);
+            gate_protocol.set_ext_data(ext.into_bytes());
             gateway_data_list.insert((1, 1), gate_protocol);
         }
 
@@ -435,7 +435,7 @@ impl DispatcherService {
         let seq = self.seq();
         let mut gatewayprotocol = PHPGatewayProtocol::new();
         gatewayprotocol.cmd = PHPGatewayProtocol::CMD_GET_CLIENT_ID_BY_UID;
-        gatewayprotocol.set_ext_data(uid);
+        gatewayprotocol.set_ext_data(uid.into_bytes());
         let buffer = gatewayprotocol.encode();
         let now = Local::now();
         let gateway_seq = GatewaySeq {
